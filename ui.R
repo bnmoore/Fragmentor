@@ -1,25 +1,26 @@
 library(shiny)
-library(rsconnect)
+library(DT)
+# library(rsconnect)
+# deployApp()
 
-# Define UI for application that draws a histogram
 shinyUI(fluidPage(
   
   # Application title
   titlePanel("Fragmentor"),
   
-  # Sidebar with a slider input for number of bins 
   sidebarLayout(
     sidebarPanel(
-       sliderInput("bins",
-                   "Number of bins:",
-                   min = 1,
-                   max = 50,
-                   value = 30)
+      checkboxGroupInput("fragmentTypes", "Choose fragment types:",
+                         choiceNames =
+                           list("a", "b", "c", "x", "y", "z"),
+                         choiceValues =
+                           list("a", "b", "c", "x", "y", "z")
+      )
     ),
     
-    # Show a plot of the generated distribution
     mainPanel(
-       plotOutput("distPlot")
+      textAreaInput("sequence", "Sequence", "RGYALG", width = "1000px"),
+      DTOutput("theoreticalIonTable")
     )
   )
 ))
