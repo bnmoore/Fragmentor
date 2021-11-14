@@ -1,0 +1,12 @@
+name: fragmentor
+title:
+username:
+account: bnmoore
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 268470
+bundleId: 1202335
+url: https://bnmoore.shinyapps.io/fragmentor/
+when: 1517460684.00583
+asMultiple: FALSE
+asStatic: FALSE
