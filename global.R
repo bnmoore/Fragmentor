@@ -1,6 +1,7 @@
 library(stringr)
 library(tidyverse)
 library(OrgMassSpecR)
+library(data.table)
 
 ionTypeList = list("M", "M*", "a", "b", "b+H2O", "c", "x", "y", "z", "d", "w")
 
