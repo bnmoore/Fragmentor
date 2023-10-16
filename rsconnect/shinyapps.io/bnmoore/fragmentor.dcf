@@ -5,8 +5,8 @@ account: bnmoore
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 268470
-bundleId: 7798929
+bundleId: 7807483
 url: https://bnmoore.shinyapps.io/fragmentor/
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: .RData
+ignoredFiles: .RData|testing_script.R

@@ -1,5 +1,4 @@
 library(shiny)
-library(DT)
 library(rhandsontable)
 
 shinyUI(fluidPage(
@@ -8,35 +7,41 @@ shinyUI(fluidPage(
   titlePanel("Fragmentor"),
   
   fluidRow(
-    column(width = 1, "Nterm"),
-    column(width = 8, textAreaInput("sequence", "Sequence", "RGYALG", width = "80%")),
-    column(width = 1),
-    column(width = 1, "Cterm"),
-    column(width = 1, "Polarity")
+    column(width = 2, selectInput("Nterm_input", "Nterm:", 
+                                         choices = filter(term_ref, term == "N")$terminus)),
+    column(width = 6, textAreaInput("sequence_input", "Sequence", "RGYALG", 
+                                    width = "100%", height = "100px")),
+    column(width = 2, selectInput("Cterm_input", "Cterm:", 
+                                         choices = filter(term_ref, term == "C")$terminus)),
+    column(width = 2, radioButtons("polarity_input", label = "", choices = c("+", "-")))
   ),
   
   fluidRow(
     column(width = 4, textOutput("elemental_comp")),
-    column(width = 4, "Deuterium Exchange")
+    column(width = 4, textOutput("atom_comp")),
+    column(width = 4, checkboxInput("deuterium_exchange_input", label = "Deuterium Exchange"))
   ),
   
+  br(),
+  
   fluidRow(
-    column(width = 1,
-           radioButtons("monoOrAvg", label = "", choices = c("Monoisotopic", "Average")),
-           checkboxGroupInput("fragment_types", "Ion types:", 
-                              choiceNames = ionTypeList$ion_type, 
-                              choiceValues = ionTypeList$ion_type),
+    column(width = 2,
+           radioButtons("mono_input", label = "", choices = c("Monoisotopic", "Average")),
+           radioButtons("table_view_input", label = "", choices = c("List", "Table")),
+           checkboxGroupInput("fragment_types_input", "Ion types:", 
+                              choices = ion_types_ref$ion_type, 
+                              selected = c("M", "b","y")),
            "Sidechains",
            "Losses",
            "Charge States"
            ),
     
-    column(width = 8,
-           DTOutput("theoreticalIonTable")
+    column(width = 6,
+           rHandsontableOutput("ion_table")
            ),
     
-    column(width = 3,
-           "Mass Delta area"
+    column(width = 4,
+           rHandsontableOutput("mass_table")
     )
   )
 ))
