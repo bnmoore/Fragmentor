@@ -132,7 +132,7 @@ shinyServer(function(input, output) {
       mutate(ion_name = paste0(ion_type, "<sub>", str_length(sequence), "</sub>", loss, " ", abs(charge), polarity)) %>% 
       mutate(ion_name = if_else(ion_type == "M", 
             paste0("[M", polarity, abs(charge), "H]", loss, " ", abs(charge), polarity), ion_name)) %>%
-      mutate(ion_type_charge = paste0(ion_type, " ", charge, polarity)) %>% 
+      mutate(ion_type_charge = paste0(ion_type, loss, " ", charge, polarity)) %>% 
       mutate(length = str_length(sequence))
     
     #Mass calculation
