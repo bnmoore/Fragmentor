@@ -1,12 +1,12 @@
 name: Fragmentor
 title: Fragmentor
-username:
+username: bnmoore
 account: bnmoore
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
-appId: 268470
-bundleId: 7807483
-url: https://bnmoore.shinyapps.io/fragmentor/
+appId: 10209943
+bundleId: 7810949
+url: https://bnmoore.shinyapps.io/Fragmentor/
+version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: .RData|testing_script.R

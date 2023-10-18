@@ -2,6 +2,8 @@ library(stringr)
 library(tidyverse)
 library(readxl)
 library(data.table)
+library(BiocManager)
+#library(rawrr)
 
 #Load References
 ion_types_ref = read_excel("resources.xlsx", sheet = "ion_type_list")
@@ -22,7 +24,7 @@ sequence_to_atoms = function(sequenceString){
   atom_table = data.frame(Abbrev1 = unlist(strsplit(sequenceString, split = ""))) 
   atom_table = atom_table %>% 
     left_join(amino_acids_ref, by = "Abbrev1") %>% 
-    select(C:`e-`)
+    select(C:D)
   atom_table = colSums(atom_table)
   atom_table
 }
@@ -41,6 +43,18 @@ atoms_to_mass = function(atom_table, mono){
   }
   sum(atom_table)
 }
+
+
+#Naming for losses
+losses_ref = losses_ref %>% 
+  rowwise() %>% 
+  mutate(loss_mass = atoms_to_mass(across(C:D), TRUE)) %>% 
+  mutate(loss_display = if_else(str_detect(loss, "sidechain"), 
+                                   paste0("sidechain"),
+                                   paste0(loss))) %>% 
+  mutate(loss = if_else(str_detect(loss, "sidechain"), 
+                                paste0(round(loss_mass), Abbrev1),
+                                paste0(loss)))
 
 
 

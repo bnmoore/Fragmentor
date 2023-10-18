@@ -2,11 +2,11 @@ library(shiny)
 library(data.table)
 library(tidyverse)
 library(rhandsontable)
-#library(rawrr)
 
 shinyServer(function(input, output) {
   
   # RGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALG
+  # ACDEFGHIKLMNPQRSsTtUVWYy
   
   
 #Functions
@@ -22,11 +22,20 @@ shinyServer(function(input, output) {
   
 #Reactive functions  
   all_ions = reactive({
-    #if(is.null(input$fragment_types_input))
-      #return(data.frame())
+    if(input$sequence_input == "" | length(input$fragment_types_input) == 0)
+      return(data.frame())
     
-    
+    #Gather inputs
     sequence_input = input$sequence_input
+    polarity = input$polarity_input
+    if(input$max_charge_input == "Max Charge")
+      chargebuild = seq(1, input$charge_input, 1)
+    else
+      chargebuild = input$charge_input
+      
+    if(polarity == "-")
+      chargebuild = -chargebuild
+    
     
     #Parse sequence
     Mbuild = sequence_input
@@ -47,18 +56,21 @@ shinyServer(function(input, output) {
     all_ions = rbind(
       expand.grid(sequence = Mbuild, 
                   ion_type = selected_ion_types_M$ion_type, 
-                  charge = seq(1, 3, 1), 
+                  charge = chargebuild, 
                   terminus = "M", 
+                  loss = c("", input$losses_input),
                   stringsAsFactors = FALSE),
       expand.grid(sequence = Ntermbuild, 
                   ion_type = selected_ion_types_N$ion_type, 
-                  charge = seq(1, 3, 1), 
+                  charge = chargebuild, 
                   terminus = input$Nterm_input, 
+                  loss = c("", input$losses_input),
                   stringsAsFactors = FALSE),
       expand.grid(sequence = Ctermbuild, 
                   ion_type = selected_ion_types_C$ion_type, 
-                  charge = seq(1, 3, 1), 
+                  charge = chargebuild, 
                   terminus = input$Cterm_input, 
+                  loss = c("", input$losses_input),
                   stringsAsFactors = FALSE)
     )
     
@@ -74,7 +86,7 @@ shinyServer(function(input, output) {
     
     all_ions2 = all_ions %>% 
       filter(terminus != "M") %>% 
-      left_join(term_ref, by = "terminus") 
+      left_join(term_ref, by = "terminus")
 
     all_ions3 = all_ions %>% 
       filter(terminus == "M") %>% 
@@ -87,39 +99,57 @@ shinyServer(function(input, output) {
       left_join(term_ref, by = "terminus") 
 
     all_ions5 = all_ions %>%
-      mutate(`H+` = charge)
+      mutate(`H+` = charge)        
     
-    all_ions98 = bind_rows(all_ions0, all_ions1, all_ions2, all_ions3, all_ions4, all_ions5)
+    all_ions6 = all_ions %>% 
+      filter(terminus != "M") %>% 
+      left_join(term_ref, by = "terminus") %>% 
+      mutate(last_aa = if_else(term == "N", substring(sequence, nchar(sequence), nchar(sequence)), "")) %>% 
+      mutate(last_aa = if_else(term == "C", substring(sequence, 1, 1), last_aa)) %>% 
+      select(-(C:D)) %>% 
+      filter(ion_type == "d") %>% 
+      left_join(filter(losses_ref, loss == "partial_sidechain"), 
+                by = c("last_aa" = "Abbrev1"), relationship = "many-to-many")
+    
+    all_ions7 = all_ions %>% 
+      left_join(losses_ref, by = "loss", relationship = "many-to-many") %>% 
+      group_by(sequence, ion_type, charge, loss) %>% 
+      filter(row_number() == 1)
+    
+    
+    all_ions98 = bind_rows(all_ions0, all_ions1, all_ions2, all_ions3, all_ions4, all_ions5, all_ions6, all_ions7)
     
     all_ions = all_ions98 %>%
       ungroup() %>% 
-      group_by(sequence, ion_type, charge) %>% 
-      summarise(across(C:`e-`, ~ sum(.x, na.rm = TRUE)))
+      group_by(sequence, ion_type, charge, loss) %>% 
+      summarise(across(C:D, ~ sum(.x, na.rm = TRUE)))
     
-    polarity = input$polarity_input
+
     
     all_ions = all_ions %>% 
       ungroup() %>% 
       rowwise() %>% 
-      mutate(ion_name = paste0(ion_type, "<sub>", str_length(sequence), "</sub> ", charge, polarity)) %>% 
+      mutate(ion_name = paste0(ion_type, "<sub>", str_length(sequence), "</sub>", loss, " ", abs(charge), polarity)) %>% 
+      mutate(ion_name = if_else(ion_type == "M", 
+            paste0("[M", polarity, abs(charge), "H]", loss, " ", abs(charge), polarity), ion_name)) %>%
       mutate(ion_type_charge = paste0(ion_type, " ", charge, polarity)) %>% 
       mutate(length = str_length(sequence))
     
     #Mass calculation
     mass = all_ions %>% 
-      select(C:`e-`)
+      select(C:D)
     mass = as.matrix(mass) %*% diag(atom_table_wide)
     mass = rowSums(mass)
     all_ions = cbind(all_ions, mass)
     all_ions = all_ions %>% 
-      mutate(mass = mass / charge) %>% 
+      mutate(mass = mass / abs(charge)) %>% 
       arrange(mass) %>% 
       mutate(mass = format(mass, nsmall = 5))
     
     
     if(input$table_view_input == "List"){
       all_ions = all_ions %>% 
-        select(c("ion_name", "mass"))
+        select(c("mass", "ion_name"))
     }
     else{
       all_ions = all_ions %>% 
@@ -144,7 +174,7 @@ shinyServer(function(input, output) {
   output$ion_table = renderRHandsontable({
     rhandsontable(all_ions(), rowHeaders = FALSE, readOnly = TRUE) %>%
       hot_context_menu(allowRowEdit = FALSE, allowColEdit = FALSE) %>%
-      hot_cols(colWidths = 100) %>% 
+      hot_cols(colWidths = 150) %>% 
       hot_cols(renderer = htmlwidgets::JS("safeHtmlRenderer")) 
   })
   

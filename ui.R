@@ -9,7 +9,7 @@ shinyUI(fluidPage(
   fluidRow(
     column(width = 2, selectInput("Nterm_input", "Nterm:", 
                                          choices = filter(term_ref, term == "N")$terminus)),
-    column(width = 6, textAreaInput("sequence_input", "Sequence", "RGYALG", 
+    column(width = 6, textAreaInput("sequence_input", "Sequence", "RGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALG", 
                                     width = "100%", height = "100px")),
     column(width = 2, selectInput("Cterm_input", "Cterm:", 
                                          choices = filter(term_ref, term == "C")$terminus)),
@@ -30,10 +30,11 @@ shinyUI(fluidPage(
            radioButtons("table_view_input", label = "", choices = c("List", "Table")),
            checkboxGroupInput("fragment_types_input", "Ion types:", 
                               choices = ion_types_ref$ion_type, 
-                              selected = c("M", "b","y")),
-           "Sidechains",
-           "Losses",
-           "Charge States"
+                              selected = c("M","b","y")),
+           checkboxGroupInput("losses_input", "Losses:", 
+                              choices = unique(losses_ref$loss_display)),
+           numericInput("charge_input", label = "Charge", value = 1),
+           radioButtons("max_charge_input", label = "", choices = c("Max Charge", "Selected Charge"))
            ),
     
     column(width = 6,
