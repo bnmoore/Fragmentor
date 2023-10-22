@@ -42,6 +42,22 @@ sequence_to_atoms = function(sequenceString, deut_exchange){
 
 
 
+
+#Atoms to mass
+atoms_to_mass = function(atom_table, mono){
+  if(mono == "Monoisotopic"){
+    for(i in 1:length(atoms_ref$Abbrev1)){
+      atom_table[1,i] = atom_table[1,i] * atoms_ref$MonoisotopicMass[i]
+    }
+  }
+  else{
+    for(i in 1:length(atoms_ref$Abbrev1)){
+      atom_table[1,i] = atom_table[1,i] * atoms_ref$AverageMass[i]
+    }
+  }
+  sum(atom_table)
+}
+
 #Naming for losses
 losses_ref = losses_ref %>% 
   rowwise() %>% 
@@ -57,20 +73,7 @@ losses_ref = losses_ref %>%
 
 
 
-# #Atoms to mass
-# atoms_to_mass = function(atom_table, mono){
-#   if(mono == "Monoisotopic"){
-#     for(i in 1:length(atoms_ref$Abbrev1)){
-#       atom_table[1,i] = atom_table[1,i] * atoms_ref$MonoisotopicMass[i]
-#     }
-#   }
-#   else{
-#     for(i in 1:length(atoms_ref$Abbrev1)){
-#       atom_table[1,i] = atom_table[1,i] * atoms_ref$AverageMass[i]
-#     }
-#   }
-#   sum(atom_table)
-# }
+
 
 
 # #Calculate amino acid masses
