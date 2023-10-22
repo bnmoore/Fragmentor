@@ -14,35 +14,32 @@ term_ref = read_excel("resources.xlsx", sheet = "term")
 
 
 #Atom table
-atom_table_wide = atoms_ref %>% 
+atom_table_wide_mono = atoms_ref %>% 
   select(Abbrev1, MonoisotopicMass) %>% 
   pivot_wider(names_from = "Abbrev1", values_from = "MonoisotopicMass")
 
+atom_table_wide_avg = atoms_ref %>% 
+  select(Abbrev1, AverageMass) %>% 
+  pivot_wider(names_from = "Abbrev1", values_from = "AverageMass")
+
 
 #Sequence to atoms
-sequence_to_atoms = function(sequenceString){
+sequence_to_atoms = function(sequenceString, deut_exchange){
+  aar = amino_acids_ref
+  if(deut_exchange){
+    aar = aar %>% 
+      mutate(D = exchangeable_deuteriums) %>% 
+      mutate(H = H - exchangeable_deuteriums)
+  }
+  
   atom_table = data.frame(Abbrev1 = unlist(strsplit(sequenceString, split = ""))) 
   atom_table = atom_table %>% 
-    left_join(amino_acids_ref, by = "Abbrev1") %>% 
+    left_join(aar, by = "Abbrev1") %>% 
     select(C:D)
   atom_table = colSums(atom_table)
   atom_table
 }
 
-#Atoms to mass
-atoms_to_mass = function(atom_table, mono){
-  if(mono == "Monoisotopic"){
-    for(i in 1:length(atoms_ref$Abbrev1)){
-      atom_table[1,i] = atom_table[1,i] * atoms_ref$MonoisotopicMass[i]
-    }
-  }
-  else{
-    for(i in 1:length(atoms_ref$Abbrev1)){
-      atom_table[1,i] = atom_table[1,i] * atoms_ref$MonoisotopicMass[i]
-    }
-  }
-  sum(atom_table)
-}
 
 
 #Naming for losses
@@ -57,6 +54,23 @@ losses_ref = losses_ref %>%
                                 paste0(loss)))
 
 
+
+
+
+# #Atoms to mass
+# atoms_to_mass = function(atom_table, mono){
+#   if(mono == "Monoisotopic"){
+#     for(i in 1:length(atoms_ref$Abbrev1)){
+#       atom_table[1,i] = atom_table[1,i] * atoms_ref$MonoisotopicMass[i]
+#     }
+#   }
+#   else{
+#     for(i in 1:length(atoms_ref$Abbrev1)){
+#       atom_table[1,i] = atom_table[1,i] * atoms_ref$AverageMass[i]
+#     }
+#   }
+#   sum(atom_table)
+# }
 
 
 # #Calculate amino acid masses

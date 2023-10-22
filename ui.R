@@ -4,7 +4,10 @@ library(rhandsontable)
 shinyUI(fluidPage(
   
   # Application title
-  titlePanel("Fragmentor"),
+  fluidRow(
+    column(width = 10, titlePanel("Fragmentor")),
+    column(width = 2, "v2023-10-21")
+  ),
   
   fluidRow(
     column(width = 2, selectInput("Nterm_input", "Nterm:", 
@@ -17,8 +20,9 @@ shinyUI(fluidPage(
   ),
   
   fluidRow(
-    column(width = 4, textOutput("elemental_comp")),
-    column(width = 4, textOutput("atom_comp")),
+    column(width = 8, 
+           htmlOutput("elemental_comp"),
+           htmlOutput("aa_comp") ),
     column(width = 4, checkboxInput("deuterium_exchange_input", label = "Deuterium Exchange"))
   ),
   
@@ -38,7 +42,7 @@ shinyUI(fluidPage(
            ),
     
     column(width = 6,
-           rHandsontableOutput("ion_table")
+           rHandsontableOutput("ion_table", height = "800px")
            ),
     
     column(width = 4,

@@ -7,18 +7,7 @@ shinyServer(function(input, output) {
   
   # RGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALG
   # ACDEFGHIKLMNPQRSsTtUVWYy
-  
-  
-#Functions
-  get_mass = function(table){
-    if(input$mono_input == "Monoisotopic")
-      table$MonoisotopicMass
-    else
-      table$AverageMass
-  }
-  
 
-  
   
 #Reactive functions  
   all_ions = reactive({
@@ -28,6 +17,10 @@ shinyServer(function(input, output) {
     #Gather inputs
     sequence_input = input$sequence_input
     polarity = input$polarity_input
+    mono = input$mono_input == "Monoisotopic"
+    deut = input$deuterium_exchange_input
+    
+    
     if(input$max_charge_input == "Max Charge")
       chargebuild = seq(1, input$charge_input, 1)
     else
@@ -75,7 +68,8 @@ shinyServer(function(input, output) {
     )
     
     #Sequence + Iontype + Terminus + Mods + Charge --> Atoms --> Mass
-    a0 = data.frame(t(sapply(unique(all_ions$sequence), sequence_to_atoms)), check.names = FALSE) %>% 
+    
+    a0 = data.frame(t(sapply(unique(all_ions$sequence), sequence_to_atoms, deut_exchange = deut)), check.names = FALSE) %>% 
       mutate_all(as.numeric)
     a0$sequence = rownames(a0)
     all_ions0 = all_ions %>% 
@@ -129,13 +123,24 @@ shinyServer(function(input, output) {
     all_ions = all_ions %>% 
       ungroup() %>% 
       rowwise() %>% 
-      mutate(ion_name = paste0(ion_type, "<sub>", str_length(sequence), "</sub>", loss, " ", abs(charge), polarity)) %>% 
+      mutate(ion_name = paste0(ion_type, 
+                               "<sub>", str_length(sequence), "</sub>", 
+                               loss, 
+                               "<sup>", if_else(abs(charge)>1, as.character(abs(charge)), ""), polarity, "</sup>")) %>% 
       mutate(ion_name = if_else(ion_type == "M", 
-            paste0("[M", polarity, abs(charge), "H]", loss, " ", abs(charge), polarity), ion_name)) %>%
-      mutate(ion_type_charge = paste0(ion_type, loss, " ", charge, polarity)) %>% 
+            paste0("[M", polarity, if_else(abs(charge)>1, as.character(abs(charge)), ""), "H]", 
+                   loss, "<sup>", 
+                   if_else(abs(charge)>1, as.character(abs(charge)), ""), polarity, "</sup>"), 
+            ion_name)) %>%
+      mutate(ion_type_charge = paste0(ion_type, 
+                                      loss, 
+                                      "<sup>", if_else(abs(charge)>1, as.character(abs(charge)), ""), polarity, "</sup>")) %>% 
       mutate(length = str_length(sequence))
     
+    
     #Mass calculation
+    atom_table_wide = if_else(mono, atom_table_wide_mono, atom_table_wide_avg)
+    
     mass = all_ions %>% 
       select(C:D)
     mass = as.matrix(mass) %*% diag(atom_table_wide)
@@ -145,6 +150,7 @@ shinyServer(function(input, output) {
       mutate(mass = mass / abs(charge)) %>% 
       arrange(mass) %>% 
       mutate(mass = format(mass, nsmall = 5))
+    
     
     
     if(input$table_view_input == "List"){
@@ -163,11 +169,33 @@ shinyServer(function(input, output) {
   
 #Main code
   output$elemental_comp = renderText({
-    paste("Elemental Composition:", " ")
+    sequence = input$sequence_input
+    deut = input$deuterium_exchange_input
+    
+    atoms = t(data.frame(sequence_to_atoms(sequence, deut)))
+    
+    label = ""
+    for(a in 1:ncol(atoms)){
+      if(atoms[,a] > 0)
+        label = paste0(label, colnames(atoms)[a], "<sub>", atoms[,a], "</sub> ")
+    }
+    
+    paste("Elemental Composition:", label)
   })
   
-  output$atom_comp = renderText({
-    paste("Atom Composition:", " ")
+  output$aa_comp = renderText({
+    sequence = input$sequence_input
+    tab = strsplit(sequence, split = "") %>% 
+      unlist() %>% 
+      table() %>% 
+      data.frame()
+    
+    label = ""
+    for(t in 1:nrow(tab)){
+      label = paste0(label, tab$.[t], tab$Freq[t], " ")
+    }
+    
+    paste("Amino Acid Composition:", label)
   })
    
   #Change this to reactive on sequence input
@@ -175,7 +203,7 @@ shinyServer(function(input, output) {
     rhandsontable(all_ions(), rowHeaders = FALSE, readOnly = TRUE) %>%
       hot_context_menu(allowRowEdit = FALSE, allowColEdit = FALSE) %>%
       hot_cols(colWidths = 150) %>% 
-      hot_cols(renderer = htmlwidgets::JS("safeHtmlRenderer")) 
+      hot_cols(renderer = htmlwidgets::JS("Handsontable.renderers.HtmlRenderer"))
   })
   
   output$mass_table = renderRHandsontable({
