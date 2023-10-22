@@ -12,7 +12,7 @@ shinyUI(fluidPage(
   fluidRow(
     column(width = 2, selectInput("Nterm_input", "Nterm:", 
                                          choices = filter(term_ref, term == "N")$terminus)),
-    column(width = 6, textAreaInput("sequence_input", "Sequence", "RGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALG", 
+    column(width = 6, textAreaInput("sequence_input", "Sequence", "RGYALG", 
                                     width = "100%", height = "100px")),
     column(width = 2, selectInput("Cterm_input", "Cterm:", 
                                          choices = filter(term_ref, term == "C")$terminus)),
