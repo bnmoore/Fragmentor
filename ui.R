@@ -12,7 +12,7 @@ shinyUI(fluidPage(
   fluidRow(
     column(width = 2, selectInput("Nterm_input", "Nterm:", 
                                          choices = filter(term_ref, term == "N")$terminus)),
-    column(width = 6, textAreaInput("sequence_input", "Sequence", "RGYALG", 
+    column(width = 6, textAreaInput("sequence_input", "Sequence", "RGYIALG", 
                                     width = "100%", height = "100px")),
     column(width = 2, selectInput("Cterm_input", "Cterm:", 
                                          choices = filter(term_ref, term == "C")$terminus)),
@@ -33,8 +33,8 @@ shinyUI(fluidPage(
            radioButtons("mono_input", label = "", choices = c("Monoisotopic", "Average")),
            radioButtons("table_view_input", label = "", choices = c("List", "Table")),
            checkboxGroupInput("fragment_types_input", "Ion types:", 
-                              choices = ion_types_ref$ion_type, 
-                              selected = c("M","b","y")),
+                              choices = filter(ion_types_ref, !str_detect(ion_type, "'"))$ion_type, 
+                              selected = c("M","b","y","d")),
            checkboxGroupInput("losses_input", "Losses:", 
                               choices = unique(losses_ref$loss_display)),
            numericInput("charge_input", label = "Charge", value = 1),
@@ -42,7 +42,7 @@ shinyUI(fluidPage(
            ),
     
     column(width = 6,
-           rHandsontableOutput("ion_table", height = "800px")
+           rHandsontableOutput("ion_table")
            ),
     
     column(width = 4,

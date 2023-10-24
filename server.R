@@ -39,6 +39,10 @@ shinyServer(function(input, output) {
     
     for(i in input$fragment_types_input){
       selected_ion_types = rbind(selected_ion_types, filter(ion_types_ref, ion_type == i))
+      if(i == "d")
+        selected_ion_types = rbind(selected_ion_types, filter(ion_types_ref, ion_type == i) %>% mutate(ion_type = "d'"))
+      if(i == "w")
+        selected_ion_types = rbind(selected_ion_types, filter(ion_types_ref, ion_type == i) %>% mutate(ion_type = "w'"))
     }
     
     selected_ion_types_M = filter(selected_ion_types, term == "M")
@@ -67,56 +71,95 @@ shinyServer(function(input, output) {
                   stringsAsFactors = FALSE)
     )
     
-    #Sequence + Iontype + Terminus + Mods + Charge --> Atoms --> Mass
+    #Sequence + Iontype + Terminus + Mods + Sidechains + Charge --> Atoms --> Mass
     
+    #Sequences
     a0 = data.frame(t(sapply(unique(all_ions$sequence), sequence_to_atoms, deut_exchange = deut)), check.names = FALSE) %>% 
       mutate_all(as.numeric)
     a0$sequence = rownames(a0)
     all_ions0 = all_ions %>% 
       left_join(a0, by = "sequence")
     
+    
+    #abcxyz
     all_ions1 = all_ions %>% 
       left_join(ion_types_ref, by = "ion_type")
     
+    
+    #terminus
     all_ions2 = all_ions %>% 
       filter(terminus != "M") %>% 
       left_join(term_ref, by = "terminus")
 
+    
+    #M
     all_ions3 = all_ions %>% 
       filter(terminus == "M") %>% 
       mutate(terminus = input$Nterm_input)%>% 
       left_join(term_ref, by = "terminus") 
-    
     all_ions4 = all_ions %>% 
       filter(terminus == "M") %>% 
       mutate(terminus = input$Cterm_input)%>% 
       left_join(term_ref, by = "terminus") 
 
-    all_ions5 = all_ions %>%
-      mutate(`H+` = charge)        
     
-    all_ions6 = all_ions %>% 
+    #d ions sidechain    
+    partial_sidechains = filter(losses_ref, loss == "partial_sidechain") %>% select(-loss) 
+    partial_sidechains_prime = filter(losses_ref, loss == "partial_sidechain_prime") %>% select(-loss) 
+    full_sidechains = filter(losses_ref, loss == "full_sidechain") %>% select(-loss) 
+    all_ions5 = all_ions %>% 
       filter(terminus != "M") %>% 
       left_join(term_ref, by = "terminus") %>% 
       mutate(last_aa = if_else(term == "N", substring(sequence, nchar(sequence), nchar(sequence)), "")) %>% 
       mutate(last_aa = if_else(term == "C", substring(sequence, 1, 1), last_aa)) %>% 
       select(-(C:D)) %>% 
+      mutate(loss = "")
+    all_ions51 = all_ions5 %>% 
       filter(ion_type == "d") %>% 
-      left_join(filter(losses_ref, loss == "partial_sidechain"), 
+      inner_join(partial_sidechains, 
                 by = c("last_aa" = "Abbrev1"), relationship = "many-to-many")
+    all_ions51prime = all_ions5 %>% 
+      filter(ion_type == "d'") %>% 
+      inner_join(partial_sidechains_prime, 
+                 by = c("last_aa" = "Abbrev1"), relationship = "many-to-many")
+    all_ions52 = all_ions5 %>% 
+      filter(ion_type == "v") %>% 
+      inner_join(full_sidechains, 
+                 by = c("last_aa" = "Abbrev1"), relationship = "many-to-many")
+    all_ions53 = all_ions5 %>% 
+      filter(ion_type == "w") %>% 
+      inner_join(partial_sidechains, 
+                 by = c("last_aa" = "Abbrev1"), relationship = "many-to-many")
+    all_ions53prime = all_ions5 %>% 
+      filter(ion_type == "w'") %>% 
+      inner_join(partial_sidechains_prime, 
+                 by = c("last_aa" = "Abbrev1"), relationship = "many-to-many")
+    all_ions5 = bind_rows(all_ions51, all_ions51prime, all_ions52, all_ions53, all_ions53prime)
     
-    all_ions7 = all_ions %>% 
+    
+    #other losses
+    all_ions6 = all_ions %>% 
       left_join(losses_ref, by = "loss", relationship = "many-to-many") %>% 
       group_by(sequence, ion_type, charge, loss) %>% 
       filter(row_number() == 1)
     
     
-    all_ions98 = bind_rows(all_ions0, all_ions1, all_ions2, all_ions3, all_ions4, all_ions5, all_ions6, all_ions7)
+    #charge
+    all_ions10 = all_ions %>%
+      mutate(`H+` = charge) 
+    
+    
+    all_ions98 = bind_rows(all_ions0, all_ions1, all_ions2, all_ions3, all_ions4, all_ions5, all_ions6, all_ions10)
     
     all_ions = all_ions98 %>%
       ungroup() %>% 
       group_by(sequence, ion_type, charge, loss) %>% 
-      summarise(across(C:D, ~ sum(.x, na.rm = TRUE)))
+      summarise(across(C:D, ~ sum(.x, na.rm = TRUE))) %>% 
+      filter(!(ion_type == "d" & sum(str_detect(all_ions51$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
+      filter(!(ion_type == "d'" & sum(str_detect(all_ions51prime$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
+      filter(!(ion_type == "v" & sum(str_detect(all_ions52$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
+      filter(!(ion_type == "w" & sum(str_detect(all_ions53$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
+      filter(!(ion_type == "w'" & sum(str_detect(all_ions53prime$sequence, paste0("^",sequence,"$"))) == 0))
     
 
     

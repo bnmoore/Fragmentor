@@ -64,10 +64,10 @@ losses_ref = losses_ref %>%
   mutate(loss_mass = atoms_to_mass(across(C:D), TRUE)) %>% 
   mutate(loss_display = if_else(str_detect(loss, "sidechain"), 
                                    paste0("sidechain"),
-                                   paste0(loss))) %>% 
-  mutate(loss = if_else(str_detect(loss, "sidechain"), 
-                                paste0(round(loss_mass), Abbrev1),
-                                paste0(loss)))
+                                   paste0(loss))) #%>% 
+  #mutate(loss = if_else(str_detect(loss, "sidechain"), 
+  #                              paste0(round(loss_mass), Abbrev1),
+  #                              paste0(loss)))
 
 
 
