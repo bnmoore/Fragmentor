@@ -9,7 +9,7 @@ shinyServer(function(input, output) {
   # ACDEFGHIKLMNPQRSsTtUVWYy
 
   
-#Reactive functions  
+#Reactive functions 
   all_ions = reactive({
     if(input$sequence_input == "" | length(input$fragment_types_input) == 0)
       return(data.frame())
@@ -49,27 +49,40 @@ shinyServer(function(input, output) {
     selected_ion_types_N = filter(selected_ion_types, term == "N")
     selected_ion_types_C = filter(selected_ion_types, term == "C")
     
+    #Sidechain loss
+    selected_losses = c("", input$losses_input)
+    if(sum(selected_losses == "sidechain") > 0){
+      selected_losses = selected_losses[selected_losses != "sidechain"]
+      selected_losses = c(selected_losses, filter(losses_ref, loss == "sidechain")$loss_display)
+    }
+    
     #Generate ions
     all_ions = rbind(
       expand.grid(sequence = Mbuild, 
                   ion_type = selected_ion_types_M$ion_type, 
                   charge = chargebuild, 
                   terminus = "M", 
-                  loss = c("", input$losses_input),
+                  loss = selected_losses,
                   stringsAsFactors = FALSE),
       expand.grid(sequence = Ntermbuild, 
                   ion_type = selected_ion_types_N$ion_type, 
                   charge = chargebuild, 
                   terminus = input$Nterm_input, 
-                  loss = c("", input$losses_input),
+                  loss = selected_losses,
                   stringsAsFactors = FALSE),
       expand.grid(sequence = Ctermbuild, 
                   ion_type = selected_ion_types_C$ion_type, 
                   charge = chargebuild, 
                   terminus = input$Cterm_input, 
-                  loss = c("", input$losses_input),
+                  loss = selected_losses,
                   stringsAsFactors = FALSE)
     )
+    
+    all_ions = all_ions %>%
+      rowwise() %>% 
+      mutate(sidechain = substring(loss, nchar(loss), nchar(loss))) %>% 
+      mutate(sidechain = if_else(sidechain == "", " ", sidechain)) %>% 
+      filter(sidechain == " " | (ion_type != "M" & str_detect(sequence, sidechain)))
     
     #Sequence + Iontype + Terminus + Mods + Sidechains + Charge --> Atoms --> Mass
     
@@ -103,10 +116,10 @@ shinyServer(function(input, output) {
       left_join(term_ref, by = "terminus") 
 
     
-    #d ions sidechain    
-    partial_sidechains = filter(losses_ref, loss == "partial_sidechain") %>% select(-loss) 
-    partial_sidechains_prime = filter(losses_ref, loss == "partial_sidechain_prime") %>% select(-loss) 
-    full_sidechains = filter(losses_ref, loss == "full_sidechain") %>% select(-loss) 
+    #dvw    
+    partial_sidechains = filter(losses_ref, d == 1) %>% select(-loss) 
+    partial_sidechains_prime = filter(losses_ref, d_prime == 1) %>% select(-loss) 
+    full_sidechains = filter(losses_ref, v == 1) %>% select(-loss) 
     all_ions5 = all_ions %>% 
       filter(terminus != "M") %>% 
       left_join(term_ref, by = "terminus") %>% 
@@ -137,10 +150,10 @@ shinyServer(function(input, output) {
     all_ions5 = bind_rows(all_ions51, all_ions51prime, all_ions52, all_ions53, all_ions53prime)
     
     
-    #other losses
+    #Other losses
     all_ions6 = all_ions %>% 
-      left_join(losses_ref, by = "loss", relationship = "many-to-many") %>% 
-      group_by(sequence, ion_type, charge, loss) %>% 
+      left_join(losses_ref, by = c("loss" = "loss_display"), relationship = "many-to-many") %>% 
+      group_by(sequence, ion_type, charge, loss, loss_mass) %>% 
       filter(row_number() == 1)
     
     
@@ -155,6 +168,7 @@ shinyServer(function(input, output) {
       ungroup() %>% 
       group_by(sequence, ion_type, charge, loss) %>% 
       summarise(across(C:D, ~ sum(.x, na.rm = TRUE))) %>% 
+      rowwise() %>% 
       filter(!(ion_type == "d" & sum(str_detect(all_ions51$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
       filter(!(ion_type == "d'" & sum(str_detect(all_ions51prime$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
       filter(!(ion_type == "v" & sum(str_detect(all_ions52$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
@@ -162,22 +176,20 @@ shinyServer(function(input, output) {
       filter(!(ion_type == "w'" & sum(str_detect(all_ions53prime$sequence, paste0("^",sequence,"$"))) == 0))
     
 
-    
+    #String formatting
     all_ions = all_ions %>% 
       ungroup() %>% 
       rowwise() %>% 
-      mutate(ion_name = paste0(ion_type, 
-                               "<sub>", str_length(sequence), "</sub>", 
-                               loss, 
-                               "<sup>", if_else(abs(charge)>1, as.character(abs(charge)), ""), polarity, "</sup>")) %>% 
+      mutate(charge_display = if_else(abs(charge)>1, as.character(abs(charge)), "")) %>% 
+      mutate(ion_name = 
+            paste0(ion_type, "<sub>", str_length(sequence), "</sub>", loss, "<sup>", charge_display, polarity, "</sup>")) %>% 
       mutate(ion_name = if_else(ion_type == "M", 
-            paste0("[M", polarity, if_else(abs(charge)>1, as.character(abs(charge)), ""), "H]", 
-                   loss, "<sup>", 
-                   if_else(abs(charge)>1, as.character(abs(charge)), ""), polarity, "</sup>"), 
+            paste0("[M", polarity, charge_display, "H]", loss, "<sup>", charge_display, polarity, "</sup>"), 
             ion_name)) %>%
-      mutate(ion_type_charge = paste0(ion_type, 
-                                      loss, 
-                                      "<sup>", if_else(abs(charge)>1, as.character(abs(charge)), ""), polarity, "</sup>")) %>% 
+      mutate(ion_name = if_else(ion_type == "M*", 
+            paste0("[M*", polarity, charge_display, "H]", loss, "<sup>", charge_display, polarity, "</sup>"), 
+            ion_name)) %>%
+      mutate(ion_type_charge = paste0(ion_type, loss, "<sup>", charge_display, polarity, "</sup>")) %>% 
       mutate(length = str_length(sequence))
     
     
