@@ -2,8 +2,11 @@ library(shiny)
 library(data.table)
 library(tidyverse)
 library(rhandsontable)
+library(fuzzyjoin)
 
 shinyServer(function(input, output) {
+  
+  ROUND_TO = 5
   
   # RGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALG
   # ACDEFGHIKLMNPQRSsTtUVWYy
@@ -204,20 +207,8 @@ shinyServer(function(input, output) {
     all_ions = all_ions %>% 
       mutate(mass = mass / abs(charge)) %>% 
       arrange(mass) %>% 
-      mutate(mass = format(mass, nsmall = 5))
+      mutate(mass = format(mass, nsmall = ROUND_TO))
     
-    
-    
-    if(input$table_view_input == "List"){
-      all_ions = all_ions %>% 
-        select(c("mass", "ion_name"))
-    }
-    else{
-      all_ions = all_ions %>% 
-        select(c("ion_type_charge", "mass", "length")) %>% 
-        arrange(ion_type_charge) %>% 
-        pivot_wider(names_from = length, values_from = mass)
-    } 
     all_ions
   })
 
@@ -253,19 +244,78 @@ shinyServer(function(input, output) {
     paste("Amino Acid Composition:", label)
   })
    
-  #Change this to reactive on sequence input
-  output$ion_table = renderRHandsontable({
-    rhandsontable(all_ions(), rowHeaders = FALSE, readOnly = TRUE) %>%
+
+  output$ion_hot = renderRHandsontable({
+    ai = all_ions()
+    
+    #Format for list or table
+    if(input$table_view_input == "List"){
+      ai = ai %>% 
+        select(c("mass", "ion_name"))
+    }
+    else{
+      ai = ai %>% 
+        select(c("ion_type_charge", "mass", "length")) %>% 
+        arrange(ion_type_charge) %>% 
+        pivot_wider(names_from = length, values_from = mass)
+    }
+    
+    rhandsontable(ai, rowHeaders = FALSE, readOnly = TRUE) %>%
       hot_context_menu(allowRowEdit = FALSE, allowColEdit = FALSE) %>%
       hot_cols(colWidths = 150) %>% 
       hot_cols(renderer = htmlwidgets::JS("Handsontable.renderers.HtmlRenderer"))
   })
   
-  output$mass_table = renderRHandsontable({
-    mass_table_df = data.frame(`Mass` = 0, `Intensity` = 0, `Int Error` = 0, `Ion` = "", `Mass Delta` = 0, check.names = FALSE)
+  output$search_hot = renderRHandsontable({
+    rhandsontable(search_hot_df(), rowHeaders = FALSE)%>%
+      hot_context_menu(allowRowEdit = TRUE, allowColEdit = FALSE) %>% 
+      hot_cols(renderer = htmlwidgets::JS("Handsontable.renderers.HtmlRenderer")) %>% 
+      hot_col(2, readOnly = TRUE ) %>% 
+      hot_col(3, readOnly = TRUE )
+  })
+  
+  
+  cell_renderer <- "function(instance, td, row, col, prop, value, cellProperties) {
+                Handsontable.renderers.TextRenderer.apply(this, arguments);
+                if (instance.params) {
+                    hcols = instance.params.col_highlight
+                    hcols = hcols instanceof Array ? hcols : [hcols]
+                    hrows = instance.params.row_highlight
+                    hrows = hrows instanceof Array ? hrows : [hrows]
+                    
+                    for (i = 0; i < hcols.length; i++) { 
+                        if (hcols[i] == col && hrows[i] == row) {
+                            td.style.background = 'pink';
+                        }
+                    }}}"      
+  
+  search_hot_df = reactive({
+    search_df = hot_to_r(input$search_hot)
     
-    rhandsontable(mass_table_df, rowHeaders = FALSE)%>%
-      hot_context_menu(allowRowEdit = FALSE, allowColEdit = FALSE)
+    if(is.null(search_df)){
+      search_df = data.frame(`Mass` = 0, `Ion` = "", `Mass Delta` = 0, check.names = FALSE)
+      search_df[1:10,] = NA
+      return(search_df)
+    }
+    
+    #Search
+    ai = all_ions() %>% 
+      mutate(mass = as.numeric(mass)) %>% 
+      select(mass, ion_name)
+    
+    for(i in 1:nrow(search_df)){
+      result = search_df[i,] %>% 
+        cross_join(ai) %>% 
+        mutate(`Mass Delta` = mass - Mass) %>% 
+        mutate(`Ion` = ion_name) %>% 
+        filter(abs(`Mass Delta`) < 10.0) %>% 
+        mutate(`Mass Delta` = format(`Mass Delta`, nsmall = 5)) %>% 
+        summarize(Mass, Ion = paste(Ion, collapse=", "), `Mass Delta` = paste(`Mass Delta`, collapse=", "))
+      if(nrow(result) > 0)
+        search_df[i,] = result
+    }
+    
+    search_df
   })
   
 })

@@ -6,7 +6,7 @@ shinyUI(fluidPage(
   # Application title
   fluidRow(
     column(width = 10, titlePanel("Fragmentor")),
-    column(width = 2, "v2023-10-24")
+    column(width = 2, "v2023-10-25")
   ),
   
   fluidRow(
@@ -42,11 +42,11 @@ shinyUI(fluidPage(
            ),
     
     column(width = 6,
-           rHandsontableOutput("ion_table")
+           rHandsontableOutput("ion_hot")
            ),
     
     column(width = 4,
-           rHandsontableOutput("mass_table")
+           rHandsontableOutput("search_hot")
     )
   )
 ))
