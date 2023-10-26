@@ -5,6 +5,8 @@ library(data.table)
 library(BiocManager)
 #library(rawrr)
 
+ROUND_TO = 5
+
 #Load References
 ion_types_ref = read_excel("resources.xlsx", sheet = "ion_type_list")
 atoms_ref = read_excel("resources.xlsx", sheet = "atoms") #Atomic masses from https://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl

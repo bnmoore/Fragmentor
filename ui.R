@@ -16,7 +16,7 @@ shinyUI(fluidPage(
                                     width = "100%", height = "100px")),
     column(width = 2, selectInput("Cterm_input", "Cterm:", 
                                          choices = filter(term_ref, term == "C")$terminus)),
-    column(width = 2, radioButtons("polarity_input", label = "", choices = c("+", "-")))
+    column(width = 2, actionButton("polarity_input", label = "+"))
   ),
   
   fluidRow(
@@ -46,6 +46,8 @@ shinyUI(fluidPage(
            ),
     
     column(width = 4,
+           numericInput("mass_tol_input", label = "Mass Tolerance (m/z)", value = 0.4),
+           radioButtons("mass_delta_input", label = "", choices = c("ppm", "m/z")),
            rHandsontableOutput("search_hot")
     )
   )

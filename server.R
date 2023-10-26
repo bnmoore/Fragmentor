@@ -4,9 +4,9 @@ library(tidyverse)
 library(rhandsontable)
 library(fuzzyjoin)
 
-shinyServer(function(input, output) {
-  
-  ROUND_TO = 5
+
+
+shinyServer(function(input, output, session) {
   
   # RGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALG
   # ACDEFGHIKLMNPQRSsTtUVWYy
@@ -19,7 +19,7 @@ shinyServer(function(input, output) {
     
     #Gather inputs
     sequence_input = input$sequence_input
-    polarity = input$polarity_input
+    polarity = POLARITY()
     mono = input$mono_input == "Monoisotopic"
     deut = input$deuterium_exchange_input
     
@@ -206,10 +206,60 @@ shinyServer(function(input, output) {
     all_ions = cbind(all_ions, mass)
     all_ions = all_ions %>% 
       mutate(mass = mass / abs(charge)) %>% 
-      arrange(mass) %>% 
-      mutate(mass = format(mass, nsmall = ROUND_TO))
-    
+      arrange(mass)
+
     all_ions
+  })
+  
+  
+  search_hot_df = reactiveVal(data.frame(`Mass` = rep("",10), `Ion` = "", `Mass Delta` = "", check.names = FALSE))
+  
+  observe({
+    MASS_TOLERANCE = input$mass_tol_input
+    
+    search_df = hot_to_r(input$search_hot)
+    if(is.null(search_df)){
+      return(data.frame(`Mass` = 0, `Ion` = "", `Mass Delta` = 0, check.names = FALSE))
+    }
+    
+    #Search
+    ai = all_ions() %>% 
+      mutate(mass = as.numeric(mass)) %>% 
+      select(mass, ion_name)
+    
+    #Clear past results
+    search_df = search_df %>% 
+      mutate(Ion = "") %>% 
+      mutate(`Mass Delta` = "")
+    
+    for(i in 1:nrow(search_df)){
+      result = search_df[i,] %>% 
+        cross_join(ai) %>% 
+        mutate(Mass = as.numeric(Mass)) %>% 
+        mutate(`Mass Delta` = mass - Mass) %>% 
+        mutate(`Ion` = ion_name) %>% 
+        filter(abs(`Mass Delta`) < MASS_TOLERANCE) %>% 
+        rowwise() %>% 
+        mutate(`Mass Delta` = ifelse(input$mass_delta_input == "ppm", 
+                                      formatC(`Mass Delta` / Mass * 1E6, digits = 2, format = "f"),
+                                      formatC(`Mass Delta`, digits = ROUND_TO, format = "f")  )) %>% 
+        ungroup() %>% 
+        reframe(Mass, Ion = paste(Ion, collapse=", "), `Mass Delta` = paste(`Mass Delta`, collapse=", "))
+      if(nrow(result) > 0)
+        search_df[i,] = result
+    }
+    
+    search_hot_df(search_df)
+  })
+  
+  #Polarity button
+  POLARITY = reactiveVal("+")
+  observeEvent(input$polarity_input, {
+    if(POLARITY() == "+")
+      POLARITY("-")
+    else if(POLARITY() == "-")
+      POLARITY("+")
+    updateActionButton(session, "polarity_input", label = POLARITY())
   })
 
   
@@ -246,7 +296,8 @@ shinyServer(function(input, output) {
    
 
   output$ion_hot = renderRHandsontable({
-    ai = all_ions()
+    ai = all_ions() %>% 
+      mutate(mass = formatC(mass, digits = ROUND_TO, format = "f"))
     
     #Format for list or table
     if(input$table_view_input == "List"){
@@ -273,58 +324,25 @@ shinyServer(function(input, output) {
       hot_col(2, readOnly = TRUE ) %>% 
       hot_col(3, readOnly = TRUE )
   })
-  
-  
-  cell_renderer <- "function(instance, td, row, col, prop, value, cellProperties) {
-                Handsontable.renderers.TextRenderer.apply(this, arguments);
-                if (instance.params) {
-                    hcols = instance.params.col_highlight
-                    hcols = hcols instanceof Array ? hcols : [hcols]
-                    hrows = instance.params.row_highlight
-                    hrows = hrows instanceof Array ? hrows : [hrows]
-                    
-                    for (i = 0; i < hcols.length; i++) { 
-                        if (hcols[i] == col && hrows[i] == row) {
-                            td.style.background = 'pink';
-                        }
-                    }}}"      
-  
-  search_hot_df = reactive({
-    search_df = hot_to_r(input$search_hot)
-    
-    if(is.null(search_df)){
-      search_df = data.frame(`Mass` = 0, `Ion` = "", `Mass Delta` = 0, check.names = FALSE)
-      search_df[1:10,] = NA
-      return(search_df)
-    }
-    
-    #Search
-    ai = all_ions() %>% 
-      mutate(mass = as.numeric(mass)) %>% 
-      select(mass, ion_name)
-    
-    for(i in 1:nrow(search_df)){
-      result = search_df[i,] %>% 
-        cross_join(ai) %>% 
-        mutate(`Mass Delta` = mass - Mass) %>% 
-        mutate(`Ion` = ion_name) %>% 
-        filter(abs(`Mass Delta`) < 10.0) %>% 
-        mutate(`Mass Delta` = format(`Mass Delta`, nsmall = 5)) %>% 
-        summarize(Mass, Ion = paste(Ion, collapse=", "), `Mass Delta` = paste(`Mass Delta`, collapse=", "))
-      if(nrow(result) > 0)
-        search_df[i,] = result
-    }
-    
-    search_df
-  })
-  
 })
 
 
 
 
 
-
+# cell_renderer <- "function(instance, td, row, col, prop, value, cellProperties) {
+#               Handsontable.renderers.TextRenderer.apply(this, arguments);
+#               if (instance.params) {
+#                   hcols = instance.params.col_highlight
+#                   hcols = hcols instanceof Array ? hcols : [hcols]
+#                   hrows = instance.params.row_highlight
+#                   hrows = hrows instanceof Array ? hrows : [hrows]
+#                   
+#                   for (i = 0; i < hcols.length; i++) { 
+#                       if (hcols[i] == col && hrows[i] == row) {
+#                           td.style.background = 'pink';
+#                       }
+#                   }}}"      
 
 
 
