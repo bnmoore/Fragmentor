@@ -6,6 +6,7 @@ library(fuzzyjoin)
 
 
 
+
 shinyServer(function(input, output, session) {
   
   # RGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALG
@@ -36,7 +37,8 @@ shinyServer(function(input, output, session) {
     #Parse sequence
     Mbuild = sequence_input
     Ntermbuild = substring(sequence_input, 1, 2:(nchar(sequence_input))-1)
-    Ctermbuild = substring(sequence_input, 2:(nchar(sequence_input)), nchar(sequence_input))
+    Ctermbuild = substring(sequence_input, (nchar(sequence_input)):2, nchar(sequence_input))
+    
     
     selected_ion_types = ion_types_ref[0,]
     

@@ -24,6 +24,10 @@ atom_table_wide_avg = atoms_ref %>%
   select(Abbrev1, AverageMass) %>% 
   pivot_wider(names_from = "Abbrev1", values_from = "AverageMass")
 
+#Amino acids ref
+amino_acids_ref = amino_acids_ref %>% 
+  arrange(Abbrev1)
+amino_acids_ref = as.data.table(amino_acids_ref, key = "Abbrev1")
 
 #Sequence to atoms
 sequence_to_atoms = function(sequenceString, deut_exchange){
@@ -33,11 +37,11 @@ sequence_to_atoms = function(sequenceString, deut_exchange){
       mutate(D = exchangeable_deuteriums) %>% 
       mutate(H = H - exchangeable_deuteriums)
   }
-  
-  atom_table = data.frame(Abbrev1 = unlist(strsplit(sequenceString, split = ""))) 
-  atom_table = atom_table %>% 
-    left_join(aar, by = "Abbrev1") %>% 
-    select(C:D)
+
+  aar = as.data.table(amino_acids_ref, key = "Abbrev1")
+  atom_table = data.table(Abbrev1 = unlist(strsplit(sequenceString, split = "", fixed = TRUE)))
+  atom_table = aar[match(atom_table$Abbrev1, aar$Abbrev1)]
+  atom_table = atom_table[,!1:6]
   atom_table = colSums(atom_table)
   atom_table
 }
