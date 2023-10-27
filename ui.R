@@ -6,7 +6,7 @@ shinyUI(fluidPage(
   # Application title
   fluidRow(
     column(width = 10, titlePanel("Fragmentor")),
-    column(width = 2, "v2023-10-26")
+    column(width = 2, "v2023-10-27")
   ),
   
   fluidRow(
@@ -48,7 +48,9 @@ shinyUI(fluidPage(
     column(width = 4,
            numericInput("mass_tol_input", label = "Mass Tolerance (m/z)", value = 0.4),
            radioButtons("mass_delta_input", label = "", choices = c("ppm", "m/z")),
-           rHandsontableOutput("search_hot")
+           rHandsontableOutput("search_hot"),
+           br(),
+           htmlOutput("sequence_picture")
     )
   )
 ))

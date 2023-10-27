@@ -66,19 +66,22 @@ shinyServer(function(input, output, session) {
       expand.grid(sequence = Mbuild, 
                   ion_type = selected_ion_types_M$ion_type, 
                   charge = chargebuild, 
-                  terminus = "M", 
+                  terminus = "M",
+                  term = "M",
                   loss = selected_losses,
                   stringsAsFactors = FALSE),
       expand.grid(sequence = Ntermbuild, 
                   ion_type = selected_ion_types_N$ion_type, 
                   charge = chargebuild, 
-                  terminus = input$Nterm_input, 
+                  terminus = input$Nterm_input,
+                  term = "N",
                   loss = selected_losses,
                   stringsAsFactors = FALSE),
       expand.grid(sequence = Ctermbuild, 
                   ion_type = selected_ion_types_C$ion_type, 
                   charge = chargebuild, 
                   terminus = input$Cterm_input, 
+                  term = "C",
                   loss = selected_losses,
                   stringsAsFactors = FALSE)
     )
@@ -101,24 +104,28 @@ shinyServer(function(input, output, session) {
     
     #abcxyz
     all_ions1 = all_ions %>% 
-      left_join(ion_types_ref, by = "ion_type")
+      left_join(ion_types_ref, by = c("ion_type", "term"))
     
     
     #terminus
     all_ions2 = all_ions %>% 
       filter(terminus != "M") %>% 
-      left_join(term_ref, by = "terminus")
+      left_join(term_ref, by = c("terminus", "term"))
 
     
     #M
     all_ions3 = all_ions %>% 
       filter(terminus == "M") %>% 
       mutate(terminus = input$Nterm_input)%>% 
-      left_join(term_ref, by = "terminus") 
+      mutate(term = "N") %>% 
+      left_join(term_ref, by = c("terminus", "term")) %>% 
+      mutate(term = "M")
     all_ions4 = all_ions %>% 
       filter(terminus == "M") %>% 
       mutate(terminus = input$Cterm_input)%>% 
-      left_join(term_ref, by = "terminus") 
+      mutate(term = "C") %>% 
+      left_join(term_ref, by = c("terminus", "term")) %>% 
+      mutate(term = "M")
 
     
     #dvw    
@@ -127,7 +134,7 @@ shinyServer(function(input, output, session) {
     full_sidechains = filter(losses_ref, v == 1) %>% select(-loss) 
     all_ions5 = all_ions %>% 
       filter(terminus != "M") %>% 
-      left_join(term_ref, by = "terminus") %>% 
+      left_join(term_ref, by = c("terminus", "term")) %>% 
       mutate(last_aa = if_else(term == "N", substring(sequence, nchar(sequence), nchar(sequence)), "")) %>% 
       mutate(last_aa = if_else(term == "C", substring(sequence, 1, 1), last_aa)) %>% 
       select(-(C:D)) %>% 
@@ -171,7 +178,7 @@ shinyServer(function(input, output, session) {
     
     all_ions = all_ions98 %>%
       ungroup() %>% 
-      group_by(sequence, ion_type, charge, loss) %>% 
+      group_by(sequence, ion_type, charge, loss, term) %>%     #selection is here
       summarise(across(C:D, ~ sum(.x, na.rm = TRUE))) %>% 
       rowwise() %>% 
       filter(!(ion_type == "d" & sum(str_detect(all_ions51$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
@@ -195,7 +202,10 @@ shinyServer(function(input, output, session) {
             paste0("[M*", polarity, charge_display, "H]", loss, "<sup>", charge_display, polarity, "</sup>"), 
             ion_name)) %>%
       mutate(ion_type_charge = paste0(ion_type, loss, "<sup>", charge_display, polarity, "</sup>")) %>% 
-      mutate(length = str_length(sequence))
+      mutate(length = str_length(sequence)) %>% 
+      mutate(position = 0) %>% 
+      mutate(position = ifelse(term == "N", length, position)) %>% 
+      mutate(position = ifelse(term == "C", str_length(sequence_input) - length, position))
     
     
     #Mass calculation
@@ -214,20 +224,25 @@ shinyServer(function(input, output, session) {
   })
   
   
-  search_hot_df = reactiveVal(data.frame(`Mass` = rep("",10), `Ion` = "", `Mass Delta` = "", check.names = FALSE))
+  search_hot_df = reactiveVal(data.frame(`Mass` = rep("",10), `Ion` = "", `Mass Delta` = "", Term = "", Position = 0, check.names = FALSE))
   
   observe({
     MASS_TOLERANCE = input$mass_tol_input
     
-    search_df = hot_to_r(input$search_hot)
-    if(is.null(search_df)){
-      return(data.frame(`Mass` = 0, `Ion` = "", `Mass Delta` = 0, check.names = FALSE))
+    if(is.null(input$search_hot)){
+      return(data.frame(`Mass` = 0, `Ion` = "", `Mass Delta` = 0, Term = "", Position = 0, check.names = FALSE))
     }
+    
+    if(nrow(hot_to_r(input$search_hot)) == 0){
+      return(data.frame(`Mass` = 0, `Ion` = "", `Mass Delta` = 0, Term = "", Position = 0, check.names = FALSE))
+    }
+    
+    search_df = data.frame(Mass = hot_to_r(input$search_hot)$Mass, `Ion` = "", `Mass Delta` = 0, Term = "", Position = 0, check.names = FALSE)
+    
     
     #Search
     ai = all_ions() %>% 
-      mutate(mass = as.numeric(mass)) %>% 
-      select(mass, ion_name)
+      mutate(mass = as.numeric(mass))
     
     #Clear past results
     search_df = search_df %>% 
@@ -240,13 +255,15 @@ shinyServer(function(input, output, session) {
         mutate(Mass = as.numeric(Mass)) %>% 
         mutate(`Mass Delta` = mass - Mass) %>% 
         mutate(`Ion` = ion_name) %>% 
+        mutate(Term = term) %>% 
+        mutate(Position = position) %>% 
         filter(abs(`Mass Delta`) < MASS_TOLERANCE) %>% 
         rowwise() %>% 
         mutate(`Mass Delta` = ifelse(input$mass_delta_input == "ppm", 
                                       formatC(`Mass Delta` / Mass * 1E6, digits = 2, format = "f"),
                                       formatC(`Mass Delta`, digits = ROUND_TO, format = "f")  )) %>% 
         ungroup() %>% 
-        reframe(Mass, Ion = paste(Ion, collapse=", "), `Mass Delta` = paste(`Mass Delta`, collapse=", "))
+        reframe(Mass, Ion = paste(Ion, collapse=", "), `Mass Delta` = paste(`Mass Delta`, collapse=", "), Term, Position)
       if(nrow(result) > 0)
         search_df[i,] = result
     }
@@ -320,11 +337,57 @@ shinyServer(function(input, output, session) {
   })
   
   output$search_hot = renderRHandsontable({
-    rhandsontable(search_hot_df(), rowHeaders = FALSE)%>%
+    df = search_hot_df() %>% 
+      select(Mass, Ion, 'Mass Delta')
+    
+    rhandsontable(df, rowHeaders = FALSE)%>%
       hot_context_menu(allowRowEdit = TRUE, allowColEdit = FALSE) %>% 
       hot_cols(renderer = htmlwidgets::JS("Handsontable.renderers.HtmlRenderer")) %>% 
       hot_col(2, readOnly = TRUE ) %>% 
       hot_col(3, readOnly = TRUE )
+  })
+  
+  output$sequence_picture = renderUI({
+    #  ┌ ┐
+    df = search_hot_df()
+    
+    seq = input$sequence_input
+    seq = unlist(strsplit(seq, ""))
+    seq_up = c("")
+    seq_mid = c("")
+    seq_down = c("")
+    for(i in 1:length(seq)){
+      seq_up[i*2] = " "
+      seq_mid[i*2] = seq[i]
+      seq_mid[i*2 + 1] = " "
+      seq_down[i*2] = " "
+      
+      search = filter(df, Position == i)
+      if(nrow(search) > 0){
+        if(search$Term == "N"){
+          seq_up[i*2 + 1] = "┐"
+          seq_down[i*2 + 1] = " "
+        }
+        else if(search$Term == "C"){
+          seq_up[i*2 + 1] = " "
+          seq_down[i*2 + 1] = "└"
+        }
+      } else{
+        seq_up[i*2 + 1] = " "
+        seq_down[i*2 + 1] = " "
+      }
+    }
+    seq_up[i*2 + 1] = " "
+    seq_down[i*2 + 1] = " "
+    
+    seq_up = paste0(seq_up, collapse = "")
+    seq_mid = paste0(seq_mid, collapse = "")
+    seq_down = paste0(seq_down, collapse = "")
+    
+    HTML(paste("<p style=\"font-family:'Courier New'\">", seq_up, seq_mid, seq_down, "</p>", sep = "<br/>"))
+    
+    #search_hot_df()$Position
+    #"ᒣᒥᒧᒪ"
   })
 })
 

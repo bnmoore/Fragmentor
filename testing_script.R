@@ -79,7 +79,7 @@ all_ions2 = all_ions %>%
 
 all_ions3 = all_ions %>% 
   filter(terminus == "M") %>% 
-  mutate(terminus = "H")%>% 
+  mutate(terminus = "H") %>% 
   left_join(term_ref, by = "terminus") 
 
 all_ions4 = all_ions %>% 
