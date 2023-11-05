@@ -284,14 +284,20 @@ shinyServer(function(input, output, session) {
         cross_join(ai) %>% 
         mutate(Mass = as.numeric(Mass)) %>% 
         mutate(`Mass Delta` = mass - Mass) %>% 
+        mutate(`Mass Delta +1` = mass - Mass + 1) %>%
+        mutate(`Mass Delta -1` = mass - Mass - 1) %>%
         mutate(`Ion` = ion_name) %>% 
         mutate(Term = term) %>% 
         mutate(Position = position) %>% 
-        filter(abs(`Mass Delta`) < MASS_TOLERANCE | abs(abs(`Mass Delta`) - OFF_BY_ONE) < MASS_TOLERANCE) %>% 
         rowwise() %>% 
+        mutate(off = ifelse(OFF_BY_ONE == 0, 0, 
+                                     ifelse(abs(`Mass Delta +1`) < MASS_TOLERANCE, +1, -1))) %>% 
+        mutate(`Mass Delta` = ifelse(off == 0, `Mass Delta`, ifelse(off == 1, `Mass Delta +1`, `Mass Delta -1`))) %>% 
+        filter(abs(`Mass Delta`) < MASS_TOLERANCE) %>% 
         mutate(`Mass Delta` = ifelse(input$mass_delta_input == "ppm", 
                                       formatC(`Mass Delta` / Mass * 1E6, digits = 2, format = "f"),
                                       formatC(`Mass Delta`, digits = ROUND_TO, format = "f")  )) %>% 
+        mutate(`Mass Delta` = ifelse(off == 0, `Mass Delta`, paste0("(",`Mass Delta`, ")"))) %>% 
         ungroup() 
         
       if(nrow(result) > 0){
