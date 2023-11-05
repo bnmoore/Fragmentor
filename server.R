@@ -253,7 +253,7 @@ shinyServer(function(input, output, session) {
   
   observe({
     MASS_TOLERANCE = input$mass_tol_input
-    OFF_BY_ONE = ifelse(input$off_by_one_input, 1.0, 0.0)
+    OFF_BY_ONE = input$off_by_one_input
     
     if(is.null(input$search_hot)){
       return(data.frame(`Mass` = 0, `Ion` = "", `Mass Delta` = 0, Term = "", Position = 0, check.names = FALSE))
@@ -289,11 +289,12 @@ shinyServer(function(input, output, session) {
         mutate(`Ion` = ion_name) %>% 
         mutate(Term = term) %>% 
         mutate(Position = position) %>% 
+        filter(abs(`Mass Delta`) < MASS_TOLERANCE | (OFF_BY_ONE & abs(abs(`Mass Delta`) - 1.0) < MASS_TOLERANCE)) %>% 
         rowwise() %>% 
-        mutate(off = ifelse(OFF_BY_ONE == 0, 0, 
-                                     ifelse(abs(`Mass Delta +1`) < MASS_TOLERANCE, +1, -1))) %>% 
-        mutate(`Mass Delta` = ifelse(off == 0, `Mass Delta`, ifelse(off == 1, `Mass Delta +1`, `Mass Delta -1`))) %>% 
-        filter(abs(`Mass Delta`) < MASS_TOLERANCE) %>% 
+        mutate(off = ifelse((OFF_BY_ONE & abs(abs(`Mass Delta`) - 1.0) < MASS_TOLERANCE), 
+                            ifelse(abs(`Mass Delta +1`) < MASS_TOLERANCE, +1, -1), 0)) %>% 
+        mutate(`Mass Delta` = ifelse(abs(`Mass Delta`) < MASS_TOLERANCE, `Mass Delta`,
+                                     ifelse(abs(`Mass Delta +1`) < MASS_TOLERANCE, `Mass Delta +1`, `Mass Delta -1`))) %>% 
         mutate(`Mass Delta` = ifelse(input$mass_delta_input == "ppm", 
                                       formatC(`Mass Delta` / Mass * 1E6, digits = 2, format = "f"),
                                       formatC(`Mass Delta`, digits = ROUND_TO, format = "f")  )) %>% 
