@@ -2,9 +2,6 @@ library(shiny)
 library(data.table)
 library(tidyverse)
 library(rhandsontable)
-library(fuzzyjoin)
-
-
 
 
 shinyServer(function(input, output, session) {
@@ -15,6 +12,8 @@ shinyServer(function(input, output, session) {
   
 #Reactive functions 
   all_ions = reactive({
+    req(col_highlight)
+    
     if(input$sequence_input == "" | length(input$fragment_types_input) == 0)
       return(data.frame())
     
@@ -219,15 +218,42 @@ shinyServer(function(input, output, session) {
     all_ions = all_ions %>% 
       mutate(mass = mass / abs(charge)) %>% 
       arrange(mass)
+    
+    all_ions = all_ions %>% 
+      mutate(list_row = row_number() - 1) %>% 
+      mutate(list_col = 0) %>% 
+      mutate(ion_type_charge = as.factor(ion_type_charge)) %>% 
+      mutate(grid_row = as.numeric(ion_type_charge) - 1) %>% 
+      mutate(grid_col = length)
 
     all_ions
   })
+
+  col_highlight = reactiveVal(value = c())
+  row_highlight = reactiveVal(value = c())
   
+  cell_renderer = "function(instance, td, row, col, prop, value, cellProperties) {
+    Handsontable.renderers.HtmlRenderer.apply(this, arguments);
+  
+    if(instance.params){
+      hcols = instance.params.col_highlight
+      hcols = hcols instanceof Array ? hcols : [hcols] 
+      hrows = instance.params.row_highlight
+      hrows = hrows instanceof Array ? hrows : [hrows] 
+      
+      for (i = 0; i < hcols.length; i++) { 
+        if (hcols[i] == col && hrows[i] == row) {
+            td.style.background = 'lightgreen';
+        }
+      }
+    }
+  }"  
   
   search_hot_df = reactiveVal(data.frame(`Mass` = rep("",10), `Ion` = "", `Mass Delta` = "", Term = "", Position = 0, check.names = FALSE))
   
   observe({
     MASS_TOLERANCE = input$mass_tol_input
+    OFF_BY_ONE = ifelse(input$off_by_one_input, 1.0, 0.0)
     
     if(is.null(input$search_hot)){
       return(data.frame(`Mass` = 0, `Ion` = "", `Mass Delta` = 0, Term = "", Position = 0, check.names = FALSE))
@@ -249,6 +275,10 @@ shinyServer(function(input, output, session) {
       mutate(Ion = "") %>% 
       mutate(`Mass Delta` = "")
     
+    rh = c()
+    ch = c()
+    
+    
     for(i in 1:nrow(search_df)){
       result = search_df[i,] %>% 
         cross_join(ai) %>% 
@@ -257,16 +287,30 @@ shinyServer(function(input, output, session) {
         mutate(`Ion` = ion_name) %>% 
         mutate(Term = term) %>% 
         mutate(Position = position) %>% 
-        filter(abs(`Mass Delta`) < MASS_TOLERANCE) %>% 
+        filter(abs(`Mass Delta`) < MASS_TOLERANCE | abs(abs(`Mass Delta`) - OFF_BY_ONE) < MASS_TOLERANCE) %>% 
         rowwise() %>% 
         mutate(`Mass Delta` = ifelse(input$mass_delta_input == "ppm", 
                                       formatC(`Mass Delta` / Mass * 1E6, digits = 2, format = "f"),
                                       formatC(`Mass Delta`, digits = ROUND_TO, format = "f")  )) %>% 
-        ungroup() %>% 
-        reframe(Mass, Ion = paste(Ion, collapse=", "), `Mass Delta` = paste(`Mass Delta`, collapse=", "), Term, Position)
-      if(nrow(result) > 0)
-        search_df[i,] = result
+        ungroup() 
+        
+      if(nrow(result) > 0){
+        if(input$table_view_input == "List"){
+          rh = c(rh, result$list_row)
+          ch = c(ch, result$list_col)
+        }
+        else {
+          rh = c(rh, result$grid_row)
+          ch = c(ch, result$grid_col)
+        }
+        
+        search_df[i,] = result %>% 
+          reframe(Mass, Ion = paste(Ion, collapse=", "), `Mass Delta` = paste(`Mass Delta`, collapse=", "), Term, Position)
+      }
     }
+    
+    row_highlight(rh)
+    col_highlight(ch)
     
     search_hot_df(search_df)
   })
@@ -280,6 +324,7 @@ shinyServer(function(input, output, session) {
       POLARITY("+")
     updateActionButton(session, "polarity_input", label = POLARITY())
   })
+  
 
   
 #Main code
@@ -315,6 +360,9 @@ shinyServer(function(input, output, session) {
    
 
   output$ion_hot = renderRHandsontable({
+    req(row_highlight)
+    req(col_highlight)
+    
     ai = all_ions() %>% 
       mutate(mass = formatC(mass, digits = ROUND_TO, format = "f"))
     
@@ -326,14 +374,15 @@ shinyServer(function(input, output, session) {
     else{
       ai = ai %>% 
         select(c("ion_type_charge", "mass", "length")) %>% 
-        arrange(ion_type_charge) %>% 
-        pivot_wider(names_from = length, values_from = mass)
+        pivot_wider(names_from = length, values_from = mass) %>% 
+        arrange(ion_type_charge)
     }
     
-    rhandsontable(ai, rowHeaders = FALSE, readOnly = TRUE) %>%
+    rhandsontable(ai, col_highlight = col_highlight(), row_highlight = row_highlight(), 
+                  rowHeaders = FALSE, readOnly = TRUE) %>%
       hot_context_menu(allowRowEdit = FALSE, allowColEdit = FALSE) %>%
       hot_cols(colWidths = 150) %>% 
-      hot_cols(renderer = htmlwidgets::JS("Handsontable.renderers.HtmlRenderer"))
+      hot_cols(renderer = cell_renderer)
   })
   
   output$search_hot = renderRHandsontable({
@@ -356,27 +405,28 @@ shinyServer(function(input, output, session) {
     seq_up = c("")
     seq_mid = c("")
     seq_down = c("")
+    
     for(i in 1:length(seq)){
       seq_up[i*2] = " "
       seq_mid[i*2] = seq[i]
       seq_mid[i*2 + 1] = " "
       seq_down[i*2] = " "
       
+      seq_up[i*2 + 1] = " "
+      seq_down[i*2 + 1] = " "
+      
       search = filter(df, Position == i)
       if(nrow(search) > 0){
-        if(search$Term == "N"){
+        if("N" %in% search$Term){
           seq_up[i*2 + 1] = "┐"
-          seq_down[i*2 + 1] = " "
         }
-        else if(search$Term == "C"){
-          seq_up[i*2 + 1] = " "
+        if("C" %in% search$Term){
           seq_down[i*2 + 1] = "└"
         }
-      } else{
-        seq_up[i*2 + 1] = " "
-        seq_down[i*2 + 1] = " "
       }
     }
+    
+    #Add space at end
     seq_up[i*2 + 1] = " "
     seq_down[i*2 + 1] = " "
     
@@ -386,7 +436,6 @@ shinyServer(function(input, output, session) {
     
     HTML(paste("<p style=\"font-family:'Courier New'\">", seq_up, seq_mid, seq_down, "</p>", sep = "<br/>"))
     
-    #search_hot_df()$Position
     #"ᒣᒥᒧᒪ"
   })
 })
@@ -395,19 +444,7 @@ shinyServer(function(input, output, session) {
 
 
 
-# cell_renderer <- "function(instance, td, row, col, prop, value, cellProperties) {
-#               Handsontable.renderers.TextRenderer.apply(this, arguments);
-#               if (instance.params) {
-#                   hcols = instance.params.col_highlight
-#                   hcols = hcols instanceof Array ? hcols : [hcols]
-#                   hrows = instance.params.row_highlight
-#                   hrows = hrows instanceof Array ? hrows : [hrows]
-#                   
-#                   for (i = 0; i < hcols.length; i++) { 
-#                       if (hcols[i] == col && hrows[i] == row) {
-#                           td.style.background = 'pink';
-#                       }
-#                   }}}"      
+
 
 
 
