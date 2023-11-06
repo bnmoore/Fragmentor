@@ -125,7 +125,7 @@ shinyServer(function(input, output, session) {
     #Sequence + Iontype + Terminus + Mods + Sidechains + Charge --> Atoms --> Mass
     
     #Sequences
-    a0 = data.frame(t(sapply(unique(all_ions$sequence), sequence_to_atoms, deut_exchange = deut)), check.names = FALSE) %>% 
+    a0 = data.frame(t(sapply(unique(all_ions$sequence), sequence_to_atoms)), check.names = FALSE) %>% 
       mutate_all(as.numeric)
     a0$sequence = rownames(a0)
     all_ions0 = all_ions %>% 
@@ -200,8 +200,14 @@ shinyServer(function(input, output, session) {
     
     
     #charge
-    all_ions10 = all_ions %>%
-      mutate(`H+` = charge) 
+    if(deut){
+      all_ions10 = all_ions %>%
+        mutate(`D+` = charge) 
+    }
+    else{
+      all_ions10 = all_ions %>%
+        mutate(`H+` = charge)
+    }
     
     
     all_ions98 = bind_rows(all_ions0, all_ions1, all_ions2, all_ions3, all_ions4, all_ions5, all_ions6, all_ions10)
@@ -378,14 +384,31 @@ shinyServer(function(input, output, session) {
     updateActionButton(session, "polarity_input", label = POLARITY())
   })
   
+  observeEvent(input$deuterium_exchange_input, {
+    if(input$deuterium_exchange_input){
+      ion_types_ref <<- ion_types_deut
+      amino_acids_ref <<- amino_acids_deut
+      term_ref <<- term_deut
+    } 
+    else{
+      ion_types_ref <<- ion_types_norm
+      amino_acids_ref <<- amino_acids_norm
+      term_ref <<- term_norm
+    }
+  })
+  
 
   
 #Main code
   output$elemental_comp = renderText({
     sequence = sequence_input()
+    Nterm = input$Nterm_input
+    Cterm = input$Cterm_input
     deut = input$deuterium_exchange_input
     
-    atoms = t(data.frame(sequence_to_atoms(sequence, deut)))
+    atoms = t(data.frame(sequence_to_atoms(sequence)))
+    atoms = rbind(atoms, filter(term_ref, terminus == Nterm | terminus == Cterm) %>% select(C:D))
+    atoms = atoms %>% summarise(across(C:D, ~ sum(.x, na.rm = TRUE)))
     
     label = ""
     for(a in 1:ncol(atoms)){
@@ -458,42 +481,58 @@ shinyServer(function(input, output, session) {
     #  ┌ ┐
     df = search_hot_df()
     
-    seq = sequence_input()
-    seq = unlist(strsplit(seq, ""))
-    seq_up = c("")
-    seq_mid = c("")
-    seq_down = c("")
+    sequence = sequence_input()
+    sequence = unlist(strsplit(sequence, ""))
     
-    for(i in 1:length(seq)){
-      seq_up[i*2] = " "
-      seq_mid[i*2] = seq[i]
-      seq_mid[i*2 + 1] = " "
-      seq_down[i*2] = " "
+    result = ""
+    
+    display_interval = 20
+    
+    for(a in 0:(length(sequence)/display_interval)){
+      start = a*display_interval + 1
+      end = a*display_interval + display_interval
+      seq = sequence[start:end]
       
-      seq_up[i*2 + 1] = " "
-      seq_down[i*2 + 1] = " "
+      seq_up = c("")
+      seq_mid = c("")
+      seq_down = c("")
       
-      search = filter(df, Position == i)
-      if(nrow(search) > 0){
-        if("N" %in% search$Term){
-          seq_up[i*2 + 1] = "┐"
-        }
-        if("C" %in% search$Term){
-          seq_down[i*2 + 1] = "└"
+      for(i in 1:length(seq)){
+        seq_up[i*2] = " "
+        if(!is.na(seq[i]))
+          seq_mid[i*2] = seq[i]
+        else
+          seq_mid[i*2] = " "
+        seq_down[i*2] = " "
+        
+        seq_up[i*2 + 1] = " "
+        seq_mid[i*2 + 1] = " "
+        seq_down[i*2 + 1] = " "
+        
+        search = filter(df, Position == i + start - 1)
+        if(nrow(search) > 0){
+          if("N" %in% search$Term){
+            seq_up[i*2 + 1] = "┐"
+          }
+          if("C" %in% search$Term){
+            seq_down[i*2 + 1] = "└"
+          }
         }
       }
+      
+      #Add space at end
+      #seq_up[i*2 + 1] = " "
+      seq_mid[i*2 + 1] = paste0("   ", end)
+      #seq_down[i*2 + 1] = " "
+      
+      seq_up = paste0(seq_up, collapse = "")
+      seq_mid = paste0(seq_mid, collapse = "")
+      seq_down = paste0(seq_down, collapse = "")
+      
+      result = paste(result, "<div style=\"font-family:'Courier New'\">", seq_up, "<br/>", seq_mid, "<br/>", seq_down, "</div>", sep = "", collapse = "")
     }
     
-    #Add space at end
-    seq_up[i*2 + 1] = " "
-    seq_down[i*2 + 1] = " "
-    
-    seq_up = paste0(seq_up, collapse = "")
-    seq_mid = paste0(seq_mid, collapse = "")
-    seq_down = paste0(seq_down, collapse = "")
-    
-    HTML(paste("<p style=\"font-family:'Courier New'\">", seq_up, seq_mid, seq_down, "</p>", sep = "<br/>"))
-    
+    HTML(result)
     #"ᒣᒥᒧᒪ"
   })
 })

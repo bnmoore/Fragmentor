@@ -8,12 +8,19 @@ library(data.table)
 ROUND_TO = 5
 
 #Load References
-ion_types_ref = read_excel("resources.xlsx", sheet = "ion_type_list")
+ion_types_norm = read_excel("resources.xlsx", sheet = "ion_type_norm")
+ion_types_deut = read_excel("resources.xlsx", sheet = "ion_type_deut")
 atoms_ref = read_excel("resources.xlsx", sheet = "atoms") #Atomic masses from https://physics.nist.gov/cgi-bin/Compositions/stand_alone.pl
-amino_acids_ref = read_excel("resources.xlsx", sheet = "amino_acids")
+amino_acids_norm = read_excel("resources.xlsx", sheet = "amino_acids_norm")
+amino_acids_deut = read_excel("resources.xlsx", sheet = "amino_acids_deut")
 losses_ref = read_excel("resources.xlsx", sheet = "losses")
-term_ref = read_excel("resources.xlsx", sheet = "term")
+term_norm = read_excel("resources.xlsx", sheet = "term_norm")
+term_deut = read_excel("resources.xlsx", sheet = "term_deut")
 
+#Global tables
+ion_types_ref = ion_types_norm
+amino_acids_ref = amino_acids_norm
+term_ref = term_norm
 
 #Atom table
 atom_table_wide_mono = atoms_ref %>% 
@@ -24,24 +31,22 @@ atom_table_wide_avg = atoms_ref %>%
   select(Abbrev1, AverageMass) %>% 
   pivot_wider(names_from = "Abbrev1", values_from = "AverageMass")
 
-#Amino acids ref
-amino_acids_ref = amino_acids_ref %>% 
+#Amino acids norm
+amino_acids_norm = amino_acids_norm %>% 
   arrange(Abbrev1)
-amino_acids_ref = as.data.table(amino_acids_ref, key = "Abbrev1")
+amino_acids_norm = as.data.table(amino_acids_norm, key = "Abbrev1")
+
+#Amino acids deut
+amino_acids_deut = amino_acids_deut %>% 
+  arrange(Abbrev1)
+amino_acids_deut = as.data.table(amino_acids_deut, key = "Abbrev1")
 
 #Sequence to atoms
-sequence_to_atoms = function(sequenceString, deut_exchange){
+sequence_to_atoms = function(sequenceString){
   aar = amino_acids_ref
-  if(deut_exchange){
-    aar = aar %>% 
-      mutate(D = exchangeable_deuteriums) %>% 
-      mutate(H = H - exchangeable_deuteriums)
-  }
-
-  aar = as.data.table(amino_acids_ref, key = "Abbrev1")
   atom_table = data.table(Abbrev1 = unlist(strsplit(sequenceString, split = "", fixed = TRUE)))
   atom_table = aar[match(atom_table$Abbrev1, aar$Abbrev1)]
-  atom_table = atom_table[,!1:6]
+  atom_table = atom_table[,!1:5]
   atom_table = colSums(atom_table)
   atom_table
 }
