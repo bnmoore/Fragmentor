@@ -6,7 +6,7 @@ shinyUI(fluidPage(
   # Application title
   fluidRow(
     column(width = 10, titlePanel("Fragmentor")),
-    column(width = 2, "v2023-11-04")
+    column(width = 2, "v2023-11-05")
   ),
   
   fluidRow(
@@ -22,7 +22,8 @@ shinyUI(fluidPage(
   fluidRow(
     column(width = 8, 
            htmlOutput("elemental_comp"),
-           htmlOutput("aa_comp") ),
+           htmlOutput("aa_comp"),
+           htmlOutput("manual_mods") ),
     column(width = 4, checkboxInput("deuterium_exchange_input", label = "Deuterium Exchange"))
   ),
   

@@ -2,15 +2,41 @@ library(shiny)
 library(data.table)
 library(tidyverse)
 library(rhandsontable)
-
+library(stringr)
 
 shinyServer(function(input, output, session) {
   
   # RGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALG
   # ACDEFGHIKLMNPQRSsTtUVWYy
+  # R-1GYALG-128.1536GGG+15.
 
+  decimal_pattern = "[+|-]\\d*\\.?\\d*"
   
 #Reactive functions 
+  sequence_input = reactive({
+    seq = str_remove_all(input$sequence_input, decimal_pattern)
+    seq
+    #Add bad string detection here
+  })
+  
+  mods = reactive({
+    sequence = input$sequence_input
+    
+    mods = data.frame(mod_position = integer(), mod_mass = double())
+    
+    matches = unlist(str_extract_all(sequence, decimal_pattern))
+    for(i in 1:length(matches))
+    {
+      if(length(matches) > 0){
+        mods = rbind(mods, data.frame(mod_position = str_locate(sequence, decimal_pattern)[1,"start"] - 1, 
+                                      mod_mass = as.numeric(matches[i])))
+        sequence = str_remove(sequence, decimal_pattern)
+      }
+    }
+
+    mods
+  })
+  
   all_ions = reactive({
     req(col_highlight)
     
@@ -18,11 +44,11 @@ shinyServer(function(input, output, session) {
       return(data.frame())
     
     #Gather inputs
-    sequence_input = input$sequence_input
+    full_sequence = sequence_input()
+    mods = mods()
     polarity = POLARITY()
     mono = input$mono_input == "Monoisotopic"
     deut = input$deuterium_exchange_input
-    
     
     if(input$max_charge_input == "Max Charge")
       chargebuild = seq(1, input$charge_input, 1)
@@ -34,9 +60,9 @@ shinyServer(function(input, output, session) {
     
     
     #Parse sequence
-    Mbuild = sequence_input
-    Ntermbuild = substring(sequence_input, 1, 2:(nchar(sequence_input))-1)
-    Ctermbuild = substring(sequence_input, (nchar(sequence_input)):2, nchar(sequence_input))
+    Mbuild = full_sequence
+    Ntermbuild = substring(full_sequence, 1, 2:(nchar(full_sequence))-1)
+    Ctermbuild = substring(full_sequence, (nchar(full_sequence)):2, nchar(full_sequence))
     
     
     selected_ion_types = ion_types_ref[0,]
@@ -187,6 +213,8 @@ shinyServer(function(input, output, session) {
       filter(!(ion_type == "w'" & sum(str_detect(all_ions53prime$sequence, paste0("^",sequence,"$"))) == 0))
     
 
+    
+
     #String formatting
     all_ions = all_ions %>% 
       ungroup() %>% 
@@ -204,7 +232,7 @@ shinyServer(function(input, output, session) {
       mutate(length = str_length(sequence)) %>% 
       mutate(position = 0) %>% 
       mutate(position = ifelse(term == "N", length, position)) %>% 
-      mutate(position = ifelse(term == "C", str_length(sequence_input) - length, position))
+      mutate(position = ifelse(term == "C", str_length(full_sequence) - length, position))
     
     
     #Mass calculation
@@ -215,6 +243,19 @@ shinyServer(function(input, output, session) {
     mass = as.matrix(mass) %*% diag(atom_table_wide)
     mass = rowSums(mass)
     all_ions = cbind(all_ions, mass)
+    
+    #Manual mods
+    if(nrow(mods) > 0)
+    {
+      for(i in 1:nrow(mods)){
+        all_ions = all_ions %>% 
+          mutate(mass = ifelse((term == "N" & mods$mod_position[i] <= position) | 
+                               (term == "C" & mods$mod_position[i] > position) | 
+                                term == "M",
+                                mass + mods$mod_mass[i], mass))
+      }
+    }
+    
     all_ions = all_ions %>% 
       mutate(mass = mass / abs(charge)) %>% 
       arrange(mass)
@@ -336,7 +377,7 @@ shinyServer(function(input, output, session) {
   
 #Main code
   output$elemental_comp = renderText({
-    sequence = input$sequence_input
+    sequence = sequence_input()
     deut = input$deuterium_exchange_input
     
     atoms = t(data.frame(sequence_to_atoms(sequence, deut)))
@@ -351,7 +392,7 @@ shinyServer(function(input, output, session) {
   })
   
   output$aa_comp = renderText({
-    sequence = input$sequence_input
+    sequence = sequence_input()
     tab = strsplit(sequence, split = "") %>% 
       unlist() %>% 
       table() %>% 
@@ -363,6 +404,11 @@ shinyServer(function(input, output, session) {
     }
     
     paste("Amino Acid Composition:", label)
+  })
+  
+  output$manual_mods = renderText({
+    mods = mods()
+    paste("Manual modifications:", paste(mods$mod_mass, mods$mod_position, sep = " at #", collapse = ", "))
   })
    
 
@@ -407,7 +453,7 @@ shinyServer(function(input, output, session) {
     #  ┌ ┐
     df = search_hot_df()
     
-    seq = input$sequence_input
+    seq = sequence_input()
     seq = unlist(strsplit(seq, ""))
     seq_up = c("")
     seq_mid = c("")
