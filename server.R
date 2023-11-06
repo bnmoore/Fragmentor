@@ -7,7 +7,7 @@ library(stringr)
 shinyServer(function(input, output, session) {
   
   # RGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALGRGYALG
-  # ACDEFGHIKLMNPQRSsTtUVWYy
+  # ACDEFGHIKL-12.0MNPQRSs-3TtUVWYy+15.
   # R-1GYALG-128.1536GGG+15.
 
   decimal_pattern = "[+|-]\\d*\\.?\\d*"
@@ -163,7 +163,8 @@ shinyServer(function(input, output, session) {
     partial_sidechains_prime = filter(losses_ref, d_prime == 1) %>% select(-loss) 
     full_sidechains = filter(losses_ref, v == 1) %>% select(-loss) 
     all_ions5 = all_ions %>% 
-      filter(terminus != "M") %>% 
+      filter(sidechain == " ") %>% 
+      filter(term != "M") %>% 
       left_join(term_ref, by = c("terminus", "term")) %>% 
       mutate(last_aa = if_else(term == "N", substring(sequence, nchar(sequence), nchar(sequence)), "")) %>% 
       mutate(last_aa = if_else(term == "C", substring(sequence, 1, 1), last_aa)) %>% 
@@ -221,7 +222,12 @@ shinyServer(function(input, output, session) {
       filter(!(ion_type == "d'" & sum(str_detect(all_ions51prime$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
       filter(!(ion_type == "v" & sum(str_detect(all_ions52$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
       filter(!(ion_type == "w" & sum(str_detect(all_ions53$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
-      filter(!(ion_type == "w'" & sum(str_detect(all_ions53prime$sequence, paste0("^",sequence,"$"))) == 0))
+      filter(!(ion_type == "w'" & sum(str_detect(all_ions53prime$sequence, paste0("^",sequence,"$"))) == 0)) %>% 
+      filter(!(ion_type == "d" & loss != "")) %>% 
+      filter(!(ion_type == "d'" & loss != "")) %>% 
+      filter(!(ion_type == "v" & loss != "")) %>% 
+      filter(!(ion_type == "w" & loss != "")) %>% 
+      filter(!(ion_type == "w'" & loss != ""))
     
 
     

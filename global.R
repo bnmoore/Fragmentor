@@ -2,8 +2,6 @@ library(stringr)
 library(tidyverse)
 library(readxl)
 library(data.table)
-#library(BiocManager)
-#library(rawrr)
 
 ROUND_TO = 5
 
