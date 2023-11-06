@@ -11,12 +11,15 @@ shinyServer(function(input, output, session) {
   # R-1GYALG-128.1536GGG+15.
 
   decimal_pattern = "[+|-]\\d*\\.?\\d*"
+  bad_characters = paste0(c("[^", amino_acids_ref$Abbrev1, "]"), collapse = "")
   
 #Reactive functions 
   sequence_input = reactive({
     seq = str_remove_all(input$sequence_input, decimal_pattern)
-    seq
-    #Add bad string detection here
+    if(str_detect(seq, bad_characters))
+      ""
+    else
+      seq
   })
   
   mods = reactive({
@@ -39,12 +42,14 @@ shinyServer(function(input, output, session) {
   
   all_ions = reactive({
     req(col_highlight)
+    req(row_highlight)
     
-    if(input$sequence_input == "" | length(input$fragment_types_input) == 0)
-      return(data.frame())
+    full_sequence = sequence_input()
+    
+    if(full_sequence == "" | length(input$fragment_types_input) == 0)
+      return(data.frame(ion_name = character(), mass = double(), term = character(), position = integer()))
     
     #Gather inputs
-    full_sequence = sequence_input()
     mods = mods()
     polarity = POLARITY()
     mono = input$mono_input == "Monoisotopic"
