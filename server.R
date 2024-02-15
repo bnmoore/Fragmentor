@@ -3,6 +3,7 @@ library(data.table)
 library(tidyverse)
 library(rhandsontable)
 library(stringr)
+library(shinyStorePlus)
 
 shinyServer(function(input, output, session) {
   
@@ -308,7 +309,14 @@ shinyServer(function(input, output, session) {
     }
   }"  
   
-  search_hot_df = reactiveVal(data.frame(`Mass` = rep("",10), `Ion` = "", `Mass Delta` = "", Term = "", Position = 0, check.names = FALSE))
+  search_hot_df = 
+    reactiveVal(data.frame(`Mass` = rep("",10), `Ion` = "", `Mass Delta` = "", Term = "", Position = 0, check.names = FALSE))
+  
+  observe({
+    search_df = 
+      data.frame(Mass = unlist(str_split(input$search_hot_store, ",")), `Ion` = "", `Mass Delta` = "", Term = "", Position = 0, check.names = FALSE)
+    search_hot_df(search_df)
+  })
   
   observe({
     MASS_TOLERANCE = input$mass_tol_input
@@ -323,7 +331,6 @@ shinyServer(function(input, output, session) {
     }
     
     search_df = data.frame(Mass = hot_to_r(input$search_hot)$Mass, `Ion` = "", `Mass Delta` = 0, Term = "", Position = 0, check.names = FALSE)
-    
     
     #Search
     ai = all_ions() %>% 
@@ -477,6 +484,8 @@ shinyServer(function(input, output, session) {
     df = search_hot_df() %>% 
       select(Mass, Ion, 'Mass Delta')
     
+    updateTextInput(session, "search_hot_store", value = paste0(df$Mass, collapse = ","))
+    
     rhandsontable(df, rowHeaders = FALSE)%>%
       hot_context_menu(allowRowEdit = TRUE, allowColEdit = FALSE) %>% 
       hot_cols(renderer = htmlwidgets::JS("Handsontable.renderers.HtmlRenderer")) %>% 
@@ -542,6 +551,11 @@ shinyServer(function(input, output, session) {
     HTML(result)
     #"ᒣᒥᒧᒪ"
   })
+  
+  
+  #stores setup - insert at the bottom  !!!IMPORTANT
+  appid = "application_fragmentor"
+  setupStorage(appId = appid,inputs = TRUE)
 })
 
 

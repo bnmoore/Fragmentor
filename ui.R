@@ -1,18 +1,22 @@
 library(shiny)
 library(rhandsontable)
+library(shinyStorePlus)
 
 shinyUI(fluidPage(
+  
+  #Initialize shinyStorePlus
+  initStore(),
   
   # Application title
   fluidRow(
     column(width = 10, titlePanel("Fragmentor")),
-    column(width = 2, "v2024-02-15")
+    column(width = 2, "v2024-02-15"),
   ),
   
   fluidRow(
     column(width = 2, selectInput("Nterm_input", "Nterm:", 
                                          choices = filter(term_ref, term == "N")$terminus)),
-    column(width = 6, textAreaInput("sequence_input", "Sequence", "RGYALG", 
+    column(width = 6, textAreaInput("sequence_input", "Sequence", "", 
                                     width = "100%", height = "100px")),
     column(width = 2, selectInput("Cterm_input", "Cterm:", 
                                          choices = filter(term_ref, term == "C")$terminus)),
@@ -53,6 +57,9 @@ shinyUI(fluidPage(
            rHandsontableOutput("search_hot"),
            br(),
            htmlOutput("sequence_picture")
-    )
+    ),
+    
+    #Temp data storage
+    conditionalPanel('false', textInput("search_hot_store", "", ",,,,,,,,,"))
   )
 ))
