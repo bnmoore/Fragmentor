@@ -5,7 +5,7 @@ account: bnmoore
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 10209943
-bundleId: 7895812
+bundleId: 8257803
 url: https://bnmoore.shinyapps.io/Fragmentor/
 version: 1
 asMultiple: FALSE

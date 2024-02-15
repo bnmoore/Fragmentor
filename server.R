@@ -341,9 +341,9 @@ shinyServer(function(input, output, session) {
       result = search_df[i,] %>% 
         cross_join(ai) %>% 
         mutate(Mass = as.numeric(Mass)) %>% 
-        mutate(`Mass Delta` = mass - Mass) %>% 
-        mutate(`Mass Delta +1` = mass - Mass + 1) %>%
-        mutate(`Mass Delta -1` = mass - Mass - 1) %>%
+        mutate(`Mass Delta` = Mass - mass) %>% 
+        mutate(`Mass Delta +1` = Mass - mass + 1) %>%
+        mutate(`Mass Delta -1` = Mass - mass - 1) %>%
         mutate(`Ion` = ion_name) %>% 
         mutate(Term = term) %>% 
         mutate(Position = position) %>% 
