@@ -85,9 +85,9 @@ shinyServer(function(input, output, session) {
     selected_ion_types_C = filter(selected_ion_types, term == "C")
     
     #Sidechain loss
-    selected_losses = c("", input$losses_input)
-    if(sum(selected_losses == "sidechain") > 0){
-      selected_losses = selected_losses[selected_losses != "sidechain"]
+    selected_losses = paste0(c("", input$losses_input), " ")
+    if(sum(selected_losses == "sidechain ") > 0){
+      selected_losses = selected_losses[selected_losses != "sidechain "] #This space is important
       selected_losses = c(selected_losses, filter(losses_ref, loss == "sidechain")$loss_display)
     }
     
@@ -120,7 +120,8 @@ shinyServer(function(input, output, session) {
       rowwise() %>% 
       mutate(sidechain = substring(loss, nchar(loss), nchar(loss))) %>% 
       mutate(sidechain = if_else(sidechain == "", " ", sidechain)) %>% 
-      filter(sidechain == " " | (ion_type != "M" & str_detect(sequence, sidechain)))
+      filter(sidechain == " " | (ion_type != "M" & str_detect(sequence, sidechain))) %>% 
+      mutate(loss = str_remove(loss, " "))
     
     #Sequence + Iontype + Terminus + Mods + Sidechains + Charge --> Atoms --> Mass
     

@@ -71,7 +71,7 @@ atoms_to_mass = function(atom_table, mono){
 losses_ref = losses_ref %>% 
   rowwise() %>% 
   mutate(loss_mass = atoms_to_mass(across(C:D), TRUE)) %>% 
-  mutate(loss_display = if_else(sidechain == 1, paste0(round(loss_mass), Abbrev1), loss))
+  mutate(loss_display = if_else(!is.na(sidechain), paste0(round(loss_mass), Abbrev1), loss))
 
 
 
