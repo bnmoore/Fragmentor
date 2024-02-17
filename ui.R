@@ -10,7 +10,7 @@ shinyUI(fluidPage(
   # Application title
   fluidRow(
     column(width = 10, titlePanel("Fragmentor")),
-    column(width = 2, "v2024-02-15"),
+    column(width = 2, "v2024-02-16"),
   ),
   
   fluidRow(
