@@ -16,7 +16,7 @@ shinyUI(fluidPage(
   fluidRow(
     column(width = 2, selectInput("Nterm_input", "Nterm:", 
                                          choices = filter(term_ref, term == "N")$terminus)),
-    column(width = 6, textAreaInput("sequence_input", "Sequence", "", 
+    column(width = 6, textAreaInput("sequence_input", "Sequence", "RGYALG", 
                                     width = "100%", height = "100px")),
     column(width = 2, selectInput("Cterm_input", "Cterm:", 
                                          choices = filter(term_ref, term == "C")$terminus)),
@@ -42,6 +42,8 @@ shinyUI(fluidPage(
                               selected = c("M","b","y")),
            checkboxGroupInput("losses_input", "Losses:", 
                               choices = unique(losses_ref$loss)),
+           checkboxGroupInput("sidechain_input", "Sidechain losses:", 
+                              choices = c("M*-sidechain", "fragment-sidechain")),
            numericInput("charge_input", label = "Charge", value = 1),
            radioButtons("max_charge_input", label = "", choices = c("Max Charge", "Selected Charge"))
            ),
